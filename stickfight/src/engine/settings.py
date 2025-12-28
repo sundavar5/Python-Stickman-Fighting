@@ -1,0 +1,36 @@
+
+# Screen settings
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+FPS = 60
+TITLE = "Stickfight: The Massive Game"
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+CYAN = (0, 255, 255)
+MAGENTA = (255, 0, 255)
+GRAY = (128, 128, 128)
+DARK_GRAY = (50, 50, 50)
+
+# Physics
+GRAVITY = 0.8
+FRICTION = -0.12
+
+# Player
+PLAYER_SPEED = 5
+PLAYER_JUMP_FORCE = 15
+PLAYER_HEALTH = 100
+
+# World
+TILE_SIZE = 32
+
+# Layers
+LAYER_BACKGROUND = 0
+LAYER_WORLD = 1
+LAYER_ENTITIES = 2
+LAYER_UI = 3
