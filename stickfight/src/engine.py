@@ -10,6 +10,10 @@ from stickfight.src.waves import WaveManager
 from stickfight.src.ui import UIManager
 from stickfight.src.rpg import PlayerStats, CharacterClass
 from stickfight.src.states import GameState
+from stickfight.src.magic import Spell
+from stickfight.src.content.spells_data import SPELLS
+from stickfight.src.quests import QuestManager
+from stickfight.src.content.quests_data import QUESTS
 
 class Game:
     def __init__(self):
@@ -23,15 +27,21 @@ class Game:
         # Systems
         self.particles = ParticleManager()
         self.level = load_test_level()
+        self.projectiles = []
 
         # Entities
         stats = CharacterClass.get_starting_stats(CharacterClass.WARRIOR)
         self.player = Stickman(200, GROUND_Y, color=BLACK, stats=stats)
         self.player.equip_weapon(Sword())
         self.player.level = self.level
+        self.player.spellbook.add_spell(SPELLS[0]) # Start with Fireball
 
         # Inject Particle Manager into Player
         self.player.particles = self.particles
+
+        # Quests
+        self.quest_manager = QuestManager(self.player)
+        self.quest_manager.add_quest(QUESTS[0])
 
         # Waves
         self.wave_manager = WaveManager(self)
@@ -59,6 +69,16 @@ class Game:
                         self.player.jump()
                     elif event.key == pygame.K_z:
                         self.player.attack()
+                    elif event.key == pygame.K_c:
+                        # Cast Spell
+                        spell = self.player.spellbook.get_active()
+                        # Cast towards nearest enemy or forward
+                        target_pos = (self.player.position.x + 300, self.player.position.y)
+                        if not self.player.facing_right:
+                             target_pos = (self.player.position.x - 300, self.player.position.y)
+
+                        if spell and spell.can_cast(self.player, pygame.time.get_ticks()):
+                            spell.cast(self.player, target_pos, pygame.time.get_ticks(), self)
 
         if self.state == GameState.PLAYING:
             # Continuous input
@@ -81,11 +101,31 @@ class Game:
             self.level.update(dt)
             self.player.update(dt)
 
+            # Projectiles
+            for p in self.projectiles:
+                p.update(dt)
+            # Remove dead projectiles
+            self.projectiles = [p for p in self.projectiles if p.life > 0]
+
             self.wave_manager.update(dt)
 
             # Combat Checks against Wave Enemies
             for data in self.wave_manager.enemies:
                 enemy = data['entity']
+
+                # Projectile Collisions
+                for p in self.projectiles:
+                    if p.owner == self.player: # Player Shot
+                        if p.position.distance_to(enemy.position) < 30:
+                            enemy.take_damage(p.damage)
+                            self.particles.create_spark(enemy.position.x, enemy.position.y)
+                            p.life = 0 # Destroy projectile
+                    elif p.owner == enemy: # Enemy shot
+                         if p.position.distance_to(self.player.position) < 30:
+                            self.player.take_damage(p.damage)
+                            p.life = 0
+
+                # Player hits Enemy
 
                 # Player hits Enemy
                 if self.player.check_hit(enemy):
@@ -97,6 +137,7 @@ class Game:
                     if enemy.health <= 0:
                         # XP Gain
                         self.player.gain_xp(20)
+                        self.quest_manager.on_enemy_killed("enemy")
 
                 # Enemy hits Player
                 if enemy.check_hit(self.player):
@@ -128,6 +169,10 @@ class Game:
 
         # Draw Particles (Behind entities?) or In front
         self.particles.draw(self.screen)
+
+        # Draw Projectiles
+        for p in self.projectiles:
+            p.draw(self.screen)
 
         # Draw Entities
         self.player.draw(self.screen)

@@ -6,6 +6,7 @@ from stickfight.src.animation import AnimationController, AnimationState
 from stickfight.src.weapons import Fists, Sword, Spear, Axe
 from stickfight.src.rpg import PlayerStats, CharacterClass
 from stickfight.src.inventory import Inventory
+from stickfight.src.magic import SpellBook
 
 class Stickman:
     def __init__(self, x, y, color=BLACK, stats=None):
@@ -23,6 +24,10 @@ class Stickman:
         self.max_health = self.stats.get_max_health()
         self.stamina = self.stats.get_max_stamina()
         self.max_stamina = self.stats.get_max_stamina()
+        self.mana = 50 + (self.stats.get_total('int') * 5)
+        self.max_mana = self.mana
+
+        self.spellbook = SpellBook()
 
         self.is_attacking = False
         self.has_hit = False
@@ -45,13 +50,16 @@ class Stickman:
             # Leveled up!
             self.max_health = self.stats.get_max_health()
             self.max_stamina = self.stats.get_max_stamina()
+            self.max_mana = 50 + (self.stats.get_total('int') * 5)
             self.health = self.max_health
+            self.mana = self.max_mana
             # print("Level Up!")
 
     def update(self, dt=16):
-        # Stamina Regen
+        # Stamina & Mana Regen
         if not self.is_blocking and not self.is_attacking:
             self.stamina = min(self.max_stamina, self.stamina + (dt * 0.05))
+            self.mana = min(self.max_mana, self.mana + (dt * 0.02))
 
         # Apply Gravity
         self.velocity.y += GRAVITY

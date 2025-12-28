@@ -69,14 +69,19 @@ class UIManager:
         pygame.draw.rect(surface, RED, (50, 50, max(0, health_width), 20))
 
         # Stamina Bar Background
-        pygame.draw.rect(surface, (0, 0, 50), (50, 75, 150, 10))
+        pygame.draw.rect(surface, (50, 50, 0), (50, 75, 150, 10)) # Yellowish
         # Stamina Bar Foreground
         stamina_width = (self.game.player.stamina / self.game.player.max_stamina) * 150
-        pygame.draw.rect(surface, BLUE, (50, 75, max(0, stamina_width), 10))
+        pygame.draw.rect(surface, (200, 200, 0), (50, 75, max(0, stamina_width), 10))
+
+        # Mana Bar Background
+        pygame.draw.rect(surface, (0, 0, 50), (50, 90, 150, 10))
+        mana_width = (self.game.player.mana / self.game.player.max_mana) * 150
+        pygame.draw.rect(surface, BLUE, (50, 90, max(0, mana_width), 10))
 
         # Weapon Name
         w_text = self.small_font.render(f"Weapon: {self.game.player.weapon.name}", True, BLACK)
-        surface.blit(w_text, (50, 90))
+        surface.blit(w_text, (50, 105))
 
     def _draw_wave_info(self, surface):
         wave_text = self.font.render(f"Wave {self.game.wave_manager.wave_number}", True, BLACK)
@@ -91,7 +96,9 @@ class UIManager:
             "Arrows: Move",
             "Space: Jump",
             "Z: Attack",
-            "X: Block"
+            "X: Block",
+            "C: Cast Spell",
+            "I: Inventory"
         ]
 
         y = SCREEN_HEIGHT - 120
