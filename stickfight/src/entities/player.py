@@ -18,13 +18,23 @@ class Player(Entity):
         self.speed = PLAYER_SPEED
         self.jump_force = PLAYER_JUMP_FORCE
 
+        # Skills
+        self.max_jumps = 1
+        self.jumps_remaining = 0
+
         # Combat State
         self.attacking = False
         self.attack_cooldown = 0
         self.facing_right = True
+        self.is_blocking = False
 
     def update(self, dt):
         """Processes input and physics for the player."""
+
+        # Blocking
+        self.is_blocking = self.input.is_key_down(pygame.K_LSHIFT) or self.input.is_key_down(pygame.K_s)
+        if self.is_blocking:
+            self.vel[0] *= 0.5 # Move slower while blocking
 
         # Horizontal Movement
         if self.input.is_key_down(pygame.K_LEFT) or self.input.is_key_down(pygame.K_a):
@@ -37,8 +47,14 @@ class Player(Entity):
             self.physics.apply_friction(self)
 
         # Jumping
-        if (self.input.is_key_just_pressed(pygame.K_SPACE) or self.input.is_key_just_pressed(pygame.K_w) or self.input.is_key_just_pressed(pygame.K_UP)) and self.on_ground:
-            self.vel[1] = -self.jump_force
+        if self.on_ground:
+            self.jumps_remaining = self.max_jumps
+
+        if (self.input.is_key_just_pressed(pygame.K_SPACE) or self.input.is_key_just_pressed(pygame.K_w) or self.input.is_key_just_pressed(pygame.K_UP)):
+            if self.jumps_remaining > 0:
+                self.vel[1] = -self.jump_force
+                self.jumps_remaining -= 1
+                self.on_ground = False
 
         # Apply Physics
         self.physics.apply_gravity(self)

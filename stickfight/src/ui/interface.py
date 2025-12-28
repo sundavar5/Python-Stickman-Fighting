@@ -32,6 +32,13 @@ class Interface:
 
         # Draw text labels
         font = self.assets.get_font('default')
-        # if font:
-        #     hp_text = font.render(f"{int(self.hp_bar.current_value)}/{self.hp_bar.max_value}", True, WHITE)
-        #     surface.blit(hp_text, (230, 20))
+        if font:
+            hp_text = font.render(f"HP: {int(self.hp_bar.current_value)}/{self.hp_bar.max_value}", True, WHITE)
+            surface.blit(hp_text, (230, 20))
+
+            mana_text = font.render(f"MP: {int(self.mana_bar.current_value)}/{self.mana_bar.max_value}", True, WHITE)
+            surface.blit(mana_text, (180, 50))
+
+            # Simple Instructions
+            help_text = font.render("Arrows/WASD: Move/Jump | Z: Attack | X: Magic | E: Interact | S/Shift: Block", True, (200, 200, 200))
+            surface.blit(help_text, (20, SCREEN_HEIGHT - 40))

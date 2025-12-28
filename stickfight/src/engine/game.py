@@ -10,8 +10,15 @@ from systems.physics import PhysicsEngine
 from systems.combat import CombatSystem
 from systems.stats import Stats
 from systems.inventory import Inventory
+from systems.particles import ParticleSystem
+from systems.magic import MagicSystem
+from systems.skills import SkillTree
+from systems.quests import QuestManager
+from systems.economy import Economy
 from entities.player import Player
-from entities.enemy import StickmanEnemy, SlimeEnemy
+from entities.enemy import StickmanEnemy, SlimeEnemy, FlyingEnemy
+from entities.boss import Boss
+from world.interactables import Chest, Door
 from ui.interface import Interface
 
 class Game:
@@ -39,10 +46,14 @@ class Game:
         self.input = InputManager()
         self.assets = AssetManager()
         self.physics = PhysicsEngine()
-        self.combat = CombatSystem()
+        self.particles = ParticleSystem()
+        self.quests = QuestManager()
+        self.combat = CombatSystem(self.particles, self.assets, self.quests)
+        self.magic = MagicSystem(self.particles)
 
         # State
         self.entities = []
+        self.interactables = []
         self.tilemap = None
         self.player = None
         self.ui = None
@@ -60,6 +71,8 @@ class Game:
         self.player = Player(100, 100, self.input, self.physics, self.tilemap)
         self.player.stats = Stats(hp=100, mana=50)
         self.player.inventory = Inventory()
+        self.player.economy = Economy()
+        self.player.skills = SkillTree()
         self.entities.append(self.player)
 
         # Enemies
@@ -71,6 +84,15 @@ class Game:
         slime = SlimeEnemy(800, 100, self.physics, self.tilemap)
         slime.stats = Stats(hp=20)
         self.entities.append(slime)
+
+        # Boss
+        boss = Boss(1200, 100, "The Big Stick", self.physics, self.tilemap, self.particles)
+        boss.stats = Stats(hp=500)
+        self.entities.append(boss)
+
+        # Interactables
+        self.interactables.append(Chest(600, 100))
+        self.interactables.append(Door(50, 100, "Level 2"))
 
         # UI
         self.ui = Interface(self.assets)
@@ -106,8 +128,23 @@ class Game:
         if self.input.is_key_just_pressed(pygame.K_z): # Attack
              self.combat.perform_attack(self.player, self.entities)
 
+        if self.input.is_key_just_pressed(pygame.K_x): # Magic
+             self.magic.cast_fireball(self.player)
+
+        # Interact
+        if self.input.is_key_just_pressed(pygame.K_e):
+            for obj in self.interactables:
+                if self.player.rect.colliderect(obj.rect):
+                    obj.interact(self.player)
+
     def update(self, dt):
         """Updates all game systems."""
+        # Update particles
+        self.particles.update()
+
+        # Update magic
+        self.magic.update(dt, self.tilemap, self.entities)
+
         # Update entities
         active_entities = []
         for entity in self.entities:
@@ -132,9 +169,19 @@ class Game:
         # Draw World
         self.tilemap.draw(self.screen, self.camera_offset)
 
+        # Draw Interactables
+        for obj in self.interactables:
+            obj.draw(self.screen, self.camera_offset)
+
         # Draw Entities
         for entity in self.entities:
             entity.draw(self.screen, self.camera_offset)
+
+        # Draw Magic
+        self.magic.draw(self.screen, self.camera_offset)
+
+        # Draw Particles
+        self.particles.draw(self.screen, self.camera_offset)
 
         # Draw UI
         self.ui.draw(self.screen)
