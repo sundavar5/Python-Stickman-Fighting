@@ -3,6 +3,7 @@ import math
 from stickfight.src.constants import *
 from stickfight.src.physics import Vector2
 from stickfight.src.animation import AnimationController, AnimationState
+from stickfight.src.weapons import Fists, Sword, Spear, Axe
 
 class Stickman:
     def __init__(self, x, y, color=BLACK):
@@ -12,13 +13,30 @@ class Stickman:
         self.facing_right = True
         self.on_ground = False
         self.health = 100
+        self.max_health = 100
+        self.stamina = 100
+        self.max_stamina = 100
+
         self.is_attacking = False
         self.has_hit = False
+        self.is_blocking = False
+
+        self.particles = None # Injected by Game
+
+        # Weapon
+        self.weapon = Fists()
 
         # Animation
         self.animator = AnimationController()
 
+    def equip_weapon(self, weapon):
+        self.weapon = weapon
+
     def update(self, dt=16):
+        # Stamina Regen
+        if not self.is_blocking and not self.is_attacking:
+            self.stamina = min(self.max_stamina, self.stamina + (dt * 0.05))
+
         # Apply Gravity
         self.velocity.y += GRAVITY
 
@@ -26,7 +44,8 @@ class Stickman:
         self.velocity.x *= FRICTION
 
         # Move
-        self.position += self.velocity
+        if not self.is_blocking: # Cannot move while blocking (or move very slow)
+            self.position += self.velocity
 
         # Ground Collision
         if self.position.y > GROUND_Y:
@@ -35,6 +54,25 @@ class Stickman:
             self.on_ground = True
         else:
             self.on_ground = False
+
+        # Platform Collision
+        # Simple AABB check for feet
+        # We need access to the level... let's inject it or pass it in update?
+        # For now, let's assume it's set on the entity like particles
+        if hasattr(self, 'level') and self.level:
+            feet_rect = pygame.Rect(self.position.x - 10, self.position.y - 5, 20, 10)
+            for plat in self.level.platforms:
+                if plat.rect.colliderect(feet_rect):
+                    if self.velocity.y > 0 and self.position.y < plat.rect.bottom:
+                        # Land on platform
+                        self.position.y = plat.rect.top
+                        self.velocity.y = 0
+                        self.on_ground = True
+
+        # Dust effect on run
+        if self.on_ground and abs(self.velocity.x) > 1 and self.particles:
+             if pygame.time.get_ticks() % 200 < 20: # Crude timer
+                 self.particles.create_dust(self.position.x, self.position.y)
 
         # Update Animation State
         if self.is_attacking:
@@ -52,10 +90,14 @@ class Stickman:
         self.animator.update(dt)
 
     def attack(self):
-        if not self.is_attacking:
+        if not self.is_attacking and not self.is_blocking and self.stamina > 20:
             self.is_attacking = True
             self.has_hit = False
             self.animator.timer = 0
+            self.stamina -= 20
+
+    def block(self, active):
+        self.is_blocking = active
 
     def check_hit(self, target):
         if not self.is_attacking:
@@ -64,10 +106,9 @@ class Stickman:
         if self.has_hit:
             return False
 
-        # Simple distance check for now
-        # Ideally we check hitbox of fist/sword
+        # Weapon based Range check
         dist = self.position.distance_to(target.position)
-        if dist < 60: # Range
+        if dist < self.weapon.range: # Range from weapon
             # Facing check
             if (self.facing_right and target.position.x > self.position.x) or \
                (not self.facing_right and target.position.x < self.position.x):
@@ -76,10 +117,17 @@ class Stickman:
         return False
 
     def take_damage(self, amount):
-        self.health -= amount
-        # Knockback
-        self.velocity.x = -5 if self.facing_right else 5
-        self.velocity.y = -5
+        if self.is_blocking and self.stamina > amount:
+             # Block success
+             self.stamina -= amount
+             amount = 0 # No damage, just stamina drain
+             # Maybe small knockback?
+             self.velocity.x = -2 if self.facing_right else 2
+        else:
+            self.health -= amount
+            # Knockback
+            self.velocity.x = -5 if self.facing_right else 5
+            self.velocity.y = -5
 
     def _draw_limb(self, surface, start_pos, angle, length, color, thickness=2):
         rad = math.radians(angle)
@@ -121,8 +169,22 @@ class Stickman:
 
         # Draw Arms
         # Base angles: 30 degrees out
-        self._draw_limb(surface, shoulder_pos, 30 + anim_data[1], ARM_LENGTH, self.color) # Right Arm
+        r_hand_pos = self._draw_limb(surface, shoulder_pos, 30 + anim_data[1], ARM_LENGTH, self.color) # Right Arm
         self._draw_limb(surface, shoulder_pos, -30 + anim_data[0], ARM_LENGTH, self.color) # Left Arm
+
+        # Draw Weapon in Right Hand
+        if self.weapon:
+            # Calculate angle based on arm angle
+            w_angle = 30 + anim_data[1]
+            if not self.facing_right:
+                 w_angle = 180 - w_angle
+
+            # Additional visual offset for attack
+            if self.is_attacking:
+                 # Angle was already animated in AnimationController, but we can exaggerate weapon swing
+                 pass
+
+            self.weapon.draw(surface, r_hand_pos[0], r_hand_pos[1], w_angle, self.facing_right)
 
     def move(self, direction):
         self.velocity.x += direction * MOVE_SPEED * 0.2

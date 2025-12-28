@@ -3,6 +3,11 @@ import pygame
 from stickfight.src.constants import *
 from stickfight.src.entities import Stickman
 from stickfight.src.ai import AIController
+from stickfight.src.particles import ParticleManager
+from stickfight.src.weapons import Sword, Spear, Axe
+from stickfight.src.world import load_test_level
+from stickfight.src.waves import WaveManager
+from stickfight.src.ui import UIManager
 
 class Game:
     def __init__(self):
@@ -12,12 +17,23 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
+        # Systems
+        self.particles = ParticleManager()
+        self.level = load_test_level()
+
         # Entities
         self.player = Stickman(200, GROUND_Y, color=BLACK)
-        self.enemy = Stickman(800, GROUND_Y, color=RED)
+        self.player.equip_weapon(Sword())
+        self.player.level = self.level
 
-        # AI
-        self.enemy_ai = AIController(self.enemy, self.player)
+        # Inject Particle Manager into Player
+        self.player.particles = self.particles
+
+        # Waves
+        self.wave_manager = WaveManager(self)
+
+        # UI
+        self.ui = UIManager(self)
 
     def handle_input(self):
         for event in pygame.event.get():
@@ -38,52 +54,68 @@ class Game:
         if keys[pygame.K_RIGHT]:
             self.player.move(1)
 
+        if keys[pygame.K_x]:
+            self.player.block(True)
+        else:
+            self.player.block(False)
+
     def update(self):
         dt = self.clock.get_time() # Time since last tick in ms
+
+        self.particles.update(dt)
+        self.level.update(dt)
         self.player.update(dt)
-        self.enemy.update(dt)
-        self.enemy_ai.update()
 
-        # Combat Checks
-        if self.player.check_hit(self.enemy):
-            self.enemy.take_damage(5)
-            # print("Enemy Hit!")
+        self.wave_manager.update(dt)
 
-        if self.enemy.check_hit(self.player):
-            self.player.take_damage(5)
-            # print("Player Hit!")
+        # Combat Checks against Wave Enemies
+        for data in self.wave_manager.enemies:
+            enemy = data['entity']
+
+            # Player hits Enemy
+            if self.player.check_hit(enemy):
+                enemy.take_damage(self.player.weapon.damage)
+                self.particles.create_blood(enemy.position.x, enemy.position.y - 40)
+                self.particles.create_spark(enemy.position.x, enemy.position.y - 40)
+
+            # Enemy hits Player
+            if enemy.check_hit(self.player):
+                self.player.take_damage(enemy.weapon.damage)
+                self.particles.create_blood(self.player.position.x, self.player.position.y - 40)
+                self.particles.create_spark(self.player.position.x, self.player.position.y - 40)
 
         # Game Over Check
-        if self.player.health <= 0 or self.enemy.health <= 0:
+        if self.player.health <= 0:
             self._reset_game()
 
     def _reset_game(self):
         self.player = Stickman(200, GROUND_Y, color=BLACK)
-        self.enemy = Stickman(800, GROUND_Y, color=RED)
-        self.enemy_ai = AIController(self.enemy, self.player)
+        self.player.equip_weapon(Sword())
+        self.player.level = self.level
+        self.player.particles = self.particles
+
+        self.wave_manager = WaveManager(self)
+        self.particles.particles.clear()
 
     def draw(self):
         self.screen.fill(WHITE)
         # Draw ground
         pygame.draw.line(self.screen, BLACK, (0, GROUND_Y), (SCREEN_WIDTH, GROUND_Y), 2)
 
+        # Draw Level
+        self.level.draw(self.screen)
+
+        # Draw Particles (Behind entities?) or In front
+        self.particles.draw(self.screen)
+
         # Draw Entities
         self.player.draw(self.screen)
-        self.enemy.draw(self.screen)
+        self.wave_manager.draw(self.screen)
 
         # UI
-        self._draw_ui()
+        self.ui.draw(self.screen)
 
         pygame.display.flip()
-
-    def _draw_ui(self):
-        # Player Health
-        pygame.draw.rect(self.screen, RED, (50, 50, 200, 20))
-        pygame.draw.rect(self.screen, GREEN, (50, 50, 2 * self.player.health, 20))
-
-        # Enemy Health
-        pygame.draw.rect(self.screen, RED, (SCREEN_WIDTH - 250, 50, 200, 20))
-        pygame.draw.rect(self.screen, GREEN, (SCREEN_WIDTH - 250, 50, 2 * self.enemy.health, 20))
 
     def run(self):
         while self.running:

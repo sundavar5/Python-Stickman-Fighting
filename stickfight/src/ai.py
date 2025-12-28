@@ -52,6 +52,12 @@ class AIController:
                      self.entity.attack()
 
         elif self.state == AIState.RETREAT:
+             # Block while retreating sometimes
+             if dist < 100:
+                 self.entity.block(True)
+             else:
+                 self.entity.block(False)
+
              if self.entity.position.x < self.target.position.x:
                 self.entity.move(-1)
              else:
