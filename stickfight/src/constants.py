@@ -1,0 +1,26 @@
+
+# Screen
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+FPS = 60
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+GRAY = (100, 100, 100)
+
+# Physics
+GRAVITY = 0.5
+FRICTION = 0.8
+JUMP_FORCE = -12
+MOVE_SPEED = 5
+GROUND_Y = 600
+
+# Stickman Dimensions
+HEAD_RADIUS = 15
+BODY_LENGTH = 50
+ARM_LENGTH = 30
+LEG_LENGTH = 40
