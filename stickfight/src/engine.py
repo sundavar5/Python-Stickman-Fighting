@@ -8,21 +8,25 @@ from stickfight.src.weapons import Sword, Spear, Axe
 from stickfight.src.world import load_test_level
 from stickfight.src.waves import WaveManager
 from stickfight.src.ui import UIManager
+from stickfight.src.rpg import PlayerStats, CharacterClass
+from stickfight.src.states import GameState
 
 class Game:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Stickman Fighting")
+        pygame.display.set_caption("Stickman RPG")
         self.clock = pygame.time.Clock()
         self.running = True
+        self.state = GameState.PLAYING
 
         # Systems
         self.particles = ParticleManager()
         self.level = load_test_level()
 
         # Entities
-        self.player = Stickman(200, GROUND_Y, color=BLACK)
+        stats = CharacterClass.get_starting_stats(CharacterClass.WARRIOR)
+        self.player = Stickman(200, GROUND_Y, color=BLACK, stats=stats)
         self.player.equip_weapon(Sword())
         self.player.level = self.level
 
@@ -42,54 +46,71 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
-                elif event.key == pygame.K_SPACE:
-                    self.player.jump()
-                elif event.key == pygame.K_z:
-                    self.player.attack()
 
-        # Continuous input
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            self.player.move(-1)
-        if keys[pygame.K_RIGHT]:
-            self.player.move(1)
+                # Toggle UI states
+                if event.key == pygame.K_i:
+                    if self.state == GameState.PLAYING:
+                        self.state = GameState.INVENTORY
+                    elif self.state == GameState.INVENTORY:
+                        self.state = GameState.PLAYING
 
-        if keys[pygame.K_x]:
-            self.player.block(True)
-        else:
-            self.player.block(False)
+                if self.state == GameState.PLAYING:
+                    if event.key == pygame.K_SPACE:
+                        self.player.jump()
+                    elif event.key == pygame.K_z:
+                        self.player.attack()
+
+        if self.state == GameState.PLAYING:
+            # Continuous input
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_LEFT]:
+                self.player.move(-1)
+            if keys[pygame.K_RIGHT]:
+                self.player.move(1)
+
+            if keys[pygame.K_x]:
+                self.player.block(True)
+            else:
+                self.player.block(False)
 
     def update(self):
         dt = self.clock.get_time() # Time since last tick in ms
 
-        self.particles.update(dt)
-        self.level.update(dt)
-        self.player.update(dt)
+        if self.state == GameState.PLAYING:
+            self.particles.update(dt)
+            self.level.update(dt)
+            self.player.update(dt)
 
-        self.wave_manager.update(dt)
+            self.wave_manager.update(dt)
 
-        # Combat Checks against Wave Enemies
-        for data in self.wave_manager.enemies:
-            enemy = data['entity']
+            # Combat Checks against Wave Enemies
+            for data in self.wave_manager.enemies:
+                enemy = data['entity']
 
-            # Player hits Enemy
-            if self.player.check_hit(enemy):
-                enemy.take_damage(self.player.weapon.damage)
-                self.particles.create_blood(enemy.position.x, enemy.position.y - 40)
-                self.particles.create_spark(enemy.position.x, enemy.position.y - 40)
+                # Player hits Enemy
+                if self.player.check_hit(enemy):
+                    dmg = int(self.player.weapon.damage * self.player.stats.get_damage_multiplier())
+                    enemy.take_damage(dmg)
+                    self.particles.create_blood(enemy.position.x, enemy.position.y - 40)
+                    self.particles.create_spark(enemy.position.x, enemy.position.y - 40)
 
-            # Enemy hits Player
-            if enemy.check_hit(self.player):
-                self.player.take_damage(enemy.weapon.damage)
-                self.particles.create_blood(self.player.position.x, self.player.position.y - 40)
-                self.particles.create_spark(self.player.position.x, self.player.position.y - 40)
+                    if enemy.health <= 0:
+                        # XP Gain
+                        self.player.gain_xp(20)
 
-        # Game Over Check
-        if self.player.health <= 0:
-            self._reset_game()
+                # Enemy hits Player
+                if enemy.check_hit(self.player):
+                    self.player.take_damage(enemy.weapon.damage)
+                    self.particles.create_blood(self.player.position.x, self.player.position.y - 40)
+                    self.particles.create_spark(self.player.position.x, self.player.position.y - 40)
+
+            # Game Over Check
+            if self.player.health <= 0:
+                self._reset_game()
 
     def _reset_game(self):
-        self.player = Stickman(200, GROUND_Y, color=BLACK)
+        stats = CharacterClass.get_starting_stats(CharacterClass.WARRIOR)
+        self.player = Stickman(200, GROUND_Y, color=BLACK, stats=stats)
         self.player.equip_weapon(Sword())
         self.player.level = self.level
         self.player.particles = self.particles

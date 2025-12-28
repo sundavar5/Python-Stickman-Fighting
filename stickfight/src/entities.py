@@ -4,18 +4,25 @@ from stickfight.src.constants import *
 from stickfight.src.physics import Vector2
 from stickfight.src.animation import AnimationController, AnimationState
 from stickfight.src.weapons import Fists, Sword, Spear, Axe
+from stickfight.src.rpg import PlayerStats, CharacterClass
+from stickfight.src.inventory import Inventory
 
 class Stickman:
-    def __init__(self, x, y, color=BLACK):
+    def __init__(self, x, y, color=BLACK, stats=None):
         self.position = Vector2(x, y)
         self.velocity = Vector2(0, 0)
         self.color = color
         self.facing_right = True
         self.on_ground = False
-        self.health = 100
-        self.max_health = 100
-        self.stamina = 100
-        self.max_stamina = 100
+
+        # RPG Stats
+        self.stats = stats or PlayerStats()
+        self.inventory = Inventory()
+
+        self.health = self.stats.get_max_health()
+        self.max_health = self.stats.get_max_health()
+        self.stamina = self.stats.get_max_stamina()
+        self.max_stamina = self.stats.get_max_stamina()
 
         self.is_attacking = False
         self.has_hit = False
@@ -31,6 +38,15 @@ class Stickman:
 
     def equip_weapon(self, weapon):
         self.weapon = weapon
+        # Add stats from weapon?
+
+    def gain_xp(self, amount):
+        if self.stats.add_xp(amount):
+            # Leveled up!
+            self.max_health = self.stats.get_max_health()
+            self.max_stamina = self.stats.get_max_stamina()
+            self.health = self.max_health
+            # print("Level Up!")
 
     def update(self, dt=16):
         # Stamina Regen
@@ -117,6 +133,9 @@ class Stickman:
         return False
 
     def take_damage(self, amount):
+        # Mitigation based on stats (VIT/Defense)
+        # Defense logic here
+
         if self.is_blocking and self.stamina > amount:
              # Block success
              self.stamina -= amount
